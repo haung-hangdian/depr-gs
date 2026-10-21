@@ -1,0 +1,6 @@
+dataset: on_the_go
+seed: 0
+occlusion_groups:
+  low: []
+  medium: []
+  high: []

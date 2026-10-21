@@ -1,0 +1,12 @@
+torch>=2.1
+torchvision
+numpy
+pyyaml
+tqdm
+pillow
+scipy
+imageio
+matplotlib
+huggingface_hub
+einops
+lpips

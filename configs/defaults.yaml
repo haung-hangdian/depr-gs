@@ -1,0 +1,16 @@
+iterations: 30000
+test_iterations: [7000, 15000, 30000]
+save_iterations: [30000]
+resolution: 1
+gate:
+  grid: [32, 32]
+  window: 100
+  ema: 0.9
+  inst_threshold: 0.25
+  mu_frac: 0.2
+  w_grid: [0.2, 0.4, 0.6, 0.8, 1.0]
+  refresh_every: 100
+loss:
+  lambda_dssim: 0.2
+  lambda_depth: 0.1
+  lambda_normal: 0.05

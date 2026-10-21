@@ -1,0 +1,8 @@
+scenes: [bicycle, on_the_go_high_01]
+variants:
+  - {gate: none, tag: uniform}
+  - {gate: entropy, tag: ours}
+  - {gate: mean_grad, tag: evidence_mean}
+  - {gate: depth_conf, tag: evidence_conf}
+  - {gate: entropy, granularity: global, tag: global_ratio}
+  - {gate: entropy, adaptive_w: false, w_fixed: 0.5, tag: fixed_w}

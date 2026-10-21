@@ -1,0 +1,16 @@
+third_party/
+data/
+output/
+runs/
+logs/
+__pycache__/
+*.pyc
+*.png
+*.jpg
+*.ply
+*.npy
+*.npz
+*.bin
+*.csv
+.vscode/
+wandb/
