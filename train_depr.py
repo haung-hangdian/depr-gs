@@ -93,7 +93,7 @@ def main():
     ap.add_argument("--densify-grad-threshold", type=float, default=0.0002)
     # DEPR options
     ap.add_argument("--gate", default="entropy",
-                    choices=["entropy", "mean_grad", "depth_conf", "none"])
+                    choices=["entropy", "mean_grad", "depth_conf", "uniform", "none"])
     ap.add_argument("--gate-grid", type=int, default=32)
     ap.add_argument("--gate-window", type=int, default=100)
     ap.add_argument("--depth-path", default="")
@@ -166,20 +166,23 @@ def main():
         loss = 0.0
         # photometric route: always on, down-weighted outside photo regions
         photo_scale = 0.15
-        w_p = 1.0 if args.gate == "none" else (
+        w_p = 1.0 if args.gate in ("none", "uniform") else (
             w_photo + (1 - w_photo) * photo_scale)
         per_pixel_l1 = (image - gt).abs().mean(dim=0, keepdim=True)
         loss = loss + (per_pixel_l1 * w_p).sum() / w_p.sum()
         loss = loss + args.lambda_dssim * (1.0 - ssim(image, gt))
 
         # geometric route
-        if depths is not None and args.gate != "none":
+        if depths is not None and args.gate not in ("none",):
             d_gt = resize_depth(depths[viewpoint_cam.image_name],
                                 gt.shape[1], gt.shape[2]).to(args.data_device)
             conf = resize_depth(confs[viewpoint_cam.image_name],
                                 gt.shape[1], gt.shape[2]).to(args.data_device)
             d_render = render_depth(gaussians, viewpoint_cam)
-            w_g = w_geo + w_prior * (args.w_fixed if not args.adaptive_w else 1.0)
+            if args.gate == "uniform":
+                w_g = torch.ones_like(w_geo)
+            else:
+                w_g = w_geo + w_prior * (args.w_fixed if not args.adaptive_w else 1.0)
             d_err = ((d_render - d_gt).abs() * conf * w_g).sum() / w_g.sum().clamp(min=1e-6)
             loss = loss + args.lambda_depth * d_err
 
