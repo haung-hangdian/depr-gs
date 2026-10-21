@@ -40,6 +40,12 @@ python scripts/eval_masked.py --renders output/bicycle_gate/test/ours_30000 \
                               --gt data/bicycle/test --masks data/bicycle/masks
 ```
 
+Linux (AutoDL / bare-metal):
+
+```bash
+bash setup.sh
+```
+
 Offline tests (no GPU, no upstream checkout needed):
 
 ```powershell
