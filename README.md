@@ -1,38 +1,78 @@
 # DEPR-GS
 
 Dynamics-Entropy Prior Routing for occlusion-robust 3D Gaussian Splatting.
-对应论文方案文档：`../outputs/APF-GS_v2_论文初稿.md`。
+The gate decides, per image region, whether the optimizer should trust
+photometric observations, geometric priors, or object-level generative priors,
+using evidence read from the optimization trajectory itself.
 
-## 结构
+> Status: research prototype. Upstream code is pulled by `setup.ps1`.
+> Paper draft and plans: see [`docs/`](docs).
+
+## Repository layout
 
 ```text
 depr-gs/
-  depr/                  # 本项目自有代码（numpy 门控、指标、I/O）
-  scripts/               # 数据与推理脚本
-  configs/               # 实验配置
-  third_party/           # 上游仓库（setup.ps1 拉取，git 忽略）
-  train_depr.py          # 训练主循环（含门控注入）
-  tests/                 # 离线自测
+  depr/                  # self-contained routing/IO/metrics code (numpy, no torch)
+  scripts/               # geometry bundle, COLMAP export, masks, prior, eval
+  configs/               # experiment configurations
+  docs/                  # paper draft and work plans
+  third_party/           # upstream repos, cloned by setup.ps1 (git-ignored)
+  train_depr.py          # 3DGS training loop with the gate injected
+  tests/                 # offline self-tests (no GPU required)
 ```
 
-## 快速开始（有网环境）
+## Quickstart
 
 ```powershell
-.\setup.ps1                 # 克隆上游 + 建 conda 环境 + 编译 rasterizer
+.\setup.ps1                 # clone upstream, create conda env, build rasterizer
+
 python scripts/run_vggt_depth.py --images data/bicycle/images --out data/bicycle/vggt
 python scripts/vggt_to_colmap.py --vggt data/bicycle/vggt --out data/bicycle/sparse/0
-python train_depr.py -s data/bicycle --gate entropy --depth-path data/bicycle/vggt
-python scripts/make_sam2_masks.py -s data/bicycle
-python scripts/eval_masked.py -m output/bicycle --mask masks/bicycle
+
+# baselines (same scene, same protocol)
+python train_depr.py -s data/bicycle -m output/bicycle_v0      --gate none
+python train_depr.py -s data/bicycle -m output/bicycle_uniform --gate uniform --depth-path data/bicycle/vggt
+python train_depr.py -s data/bicycle -m output/bicycle_gate    --gate entropy --depth-path data/bicycle/vggt
+
+# masked evaluation (masks generated with SAM2)
+python scripts/make_sam2_masks.py -s data/bicycle --prompts masks/prompts.json
+python scripts/eval_masked.py --renders output/bicycle_gate/test/ours_30000 \
+                              --gt data/bicycle/test --masks data/bicycle/masks
 ```
 
-## 上游依赖与许可证
+Offline tests (no GPU, no upstream checkout needed):
 
-| 仓库 | 用途 | 许可证 |
+```powershell
+pip install -e . pytest
+python tests/test_gate.py
+```
+
+## Checkpoints (HuggingFace, gated)
+
+```text
+hf download facebook/vggt-omega --include "checkpoints/*" --exclude "*.onnx"
+hf download facebook/sam-3d-objects --include "checkpoints/*"
+```
+
+SAM2 checkpoint: download `sam2.1_hiera_large.pt` from the official SAM2 release page.
+
+## Upstream dependencies and licenses
+
+| Repository | Role | License |
 |---|---|---|
-| graphdeco-inria/gaussian-splatting | 基座与 rasterizer | INRIA License |
-| facebookresearch/vggt-omega | 位姿/深度/置信 | 见仓库 LICENSE（通常 CC-BY-NC） |
-| facebookresearch/sam-3d-objects | 对象先验 | SAM License |
-| facebookresearch/sam2 | 可见区/实例掩码 | Apache-2.0 |
+| graphdeco-inria/gaussian-splatting | base and rasterizer | INRIA License |
+| facebookresearch/vggt-omega | poses / depth / confidence | see repo LICENSE (typically CC-BY-NC) |
+| facebookresearch/sam-3d-objects | object prior | SAM License |
+| facebookresearch/sam2 | masks | Apache-2.0 |
 
-上游权重多为 HuggingFace gated，需提前申请；SAM 3D 被卡时用 TRELLIS 或 Hunyuan3D 兜底。
+This repository itself is MIT licensed (see `LICENSE`). Upstream code and weights
+remain under their original licenses; do not redistribute upstream checkpoints.
+
+## Citation
+
+```bibtex
+@software{depr_gs,
+  title = {DEPR-GS: Dynamics-Entropy Prior Routing for Occlusion-Robust 3D Gaussian Splatting},
+  note = {Research prototype},
+}
+```

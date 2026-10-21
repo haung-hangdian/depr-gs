@@ -13,6 +13,7 @@ conda create -n depr-gs python=3.10 -y
 conda activate depr-gs
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 pip install -r requirements.txt
+pip install -e .
 
 Set-Location third_party/gaussian-splatting
 pip install submodules/diff-gaussian-rasterization

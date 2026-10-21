@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "depr-gs"
+version = "0.1.0"
+description = "Dynamics-Entropy Prior Routing for occlusion-robust 3D Gaussian Splatting"
+requires-python = ">=3.10"
+dependencies = ["numpy", "pyyaml", "pillow", "tqdm"]
+
+[tool.setuptools]
+packages = ["depr"]
