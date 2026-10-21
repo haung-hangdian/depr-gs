@@ -25,6 +25,17 @@ clone_repo https://github.com/facebookresearch/vggt-omega.git third_party/vggt-o
 clone_repo https://github.com/facebookresearch/sam-3d-objects.git third_party/sam-3d-objects
 clone_repo https://github.com/facebookresearch/sam2.git third_party/sam2
 
+echo "[1b/4] fetching 3DGS CUDA submodules..."
+if [ -f third_party/gaussian-splatting/submodules/diff-gaussian-rasterization/setup.py ]; then
+  echo "submodules already present"
+else
+  git -C third_party/gaussian-splatting submodule update --init --recursive || true
+fi
+clone_repo https://github.com/graphdeco-inria/diff-gaussian-rasterization.git \
+  third_party/gaussian-splatting/submodules/diff-gaussian-rasterization
+clone_repo https://github.com/graphdeco-inria/simple-knn.git \
+  third_party/gaussian-splatting/submodules/simple-knn
+
 echo "[2/4] installing python dependencies (torch excluded: keep the container's build)..."
 python -m pip install numpy pyyaml tqdm pillow imageio matplotlib huggingface_hub einops lpips
 python -m pip install -e .
