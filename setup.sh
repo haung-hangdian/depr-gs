@@ -4,10 +4,26 @@ cd "$(dirname "$0")"
 
 echo "[1/4] cloning upstream repositories..."
 mkdir -p third_party
-[ -d third_party/gaussian-splatting ] || git clone --depth 1 https://github.com/graphdeco-inria/gaussian-splatting.git third_party/gaussian-splatting
-[ -d third_party/vggt-omega ] || git clone --depth 1 https://github.com/facebookresearch/vggt-omega.git third_party/vggt-omega
-[ -d third_party/sam-3d-objects ] || git clone --depth 1 https://github.com/facebookresearch/sam-3d-objects.git third_party/sam-3d-objects
-[ -d third_party/sam2 ] || git clone --depth 1 https://github.com/facebookresearch/sam2.git third_party/sam2
+clone_repo() {
+  local url=$1 dir=$2
+  if [ -d "$dir/.git" ]; then
+    echo "skip $dir (already present)"
+    return 0
+  fi
+  rm -rf "$dir"
+  for attempt in 1 2 3; do
+    echo "clone $dir (attempt $attempt)"
+    if git clone --depth 1 -c http.version=HTTP/1.1 "$url" "$dir"; then
+      return 0
+    fi
+    echo "clone failed, retrying..."
+  done
+  return 1
+}
+clone_repo https://github.com/graphdeco-inria/gaussian-splatting.git third_party/gaussian-splatting
+clone_repo https://github.com/facebookresearch/vggt-omega.git third_party/vggt-omega
+clone_repo https://github.com/facebookresearch/sam-3d-objects.git third_party/sam-3d-objects
+clone_repo https://github.com/facebookresearch/sam2.git third_party/sam2
 
 echo "[2/4] installing python dependencies (torch excluded: keep the container's build)..."
 python -m pip install numpy pyyaml tqdm pillow imageio matplotlib huggingface_hub einops lpips
