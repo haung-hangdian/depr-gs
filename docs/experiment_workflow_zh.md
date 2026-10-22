@@ -5,14 +5,29 @@
 
 ## 0. 总览
 
+这篇工作要回答的问题只有一个：**深度先验对 3D 重建是一把双刃剑，如何在
+需要它的区域用它，在不该用的区域停用？**
+
+三个待验证的主张（论文里的 claim）：
+
+- H1：均匀注入深度先验能改善遮挡区，但会污染可见区（全图质量不升反降）。
+- H2：用优化轨迹上的残差熵做门控，可以把先验只路由到不确定区域（遮挡区），
+  实现"该用才用"。
+- H3：先验强度的自适应选择优于固定强度。
+
 主证据链只有四步，全部使用公共数据集：
 
-1. VGGT-Omega 出位姿 + 深度 + 置信度（几何束）
-2. 几何束转 COLMAP `sparse/0`，作为 3DGS 的初始化
+1. VGGT 出位姿 + 深度（几何束）
+2. 几何束转 COLMAP `sparse/0`，作为 3DGS 的初始化，同一份深度留作训练监督
 3. `train_depr.py` 在熵门控（或对照变体）下训练
 4. 遮挡区掩码评估（masked PSNR / SSIM）
 
-目标数据集：Mip-NeRF360（bicycle、garden、room 起步）、NeRF On-The-Go（高/低遮挡分档）。
+四步与主张的对应：第 1-2 步保证所有变体使用同一几何束，排除"初始化不同"的
+混淆变量；第 3 步中 `none` vs `uniform` 对应 H1，`uniform` vs `entropy` 对应
+H2，`entropy` vs `fixed_w` 对应 H3；第 4 步把训练过程的定性趋势变成定量主指标。
+
+目标数据集分工：Mip-NeRF360 是标准稠密场景，证明"可见区不退化"；NeRF On-The-Go
+是真实手持遮挡场景，证明"遮挡区真提升"，并按高/低遮挡分档。
 
 ## 1. 环境安装
 
@@ -40,6 +55,16 @@ bash setup.sh
 - 报 `No module named 'torch'`（构建隔离）：本版脚本已统一加 `--no-build-isolation`，不该再出现；若手动 pip 时遇到，同样加 `--no-build-isolation`。
 - `nvcc` 找不到：镜像的 CUDA 在 `/usr/local/cuda`，脚本会自动加 PATH；`conda install -y -c nvidia cuda-nvcc=12.1` 可兜底。
 - `sam-3d-objects` / `sam2` 克隆失败：它们被标为可选，失败只会告警，不阻塞主流程。
+
+**作用**：把 PyTorch、两个 CUDA 扩展（`diff-gaussian-rasterization`、`simple-knn`）、
+SAM2 一次性装好，保证 `train_depr.py` 能编译运行。`--self-test` 先查工具链，
+`--dry-run` 预览将要执行的安装，正式安装幂等、可重复跑。
+
+**为了证明什么**：这一步不直接产出论文数据，但它保证五条训练曲线在同一环境、
+同一版本下比较；环境不一致会让"门控带来的增益"被版本噪声淹没，对照就失去意义。
+
+**应得到什么结果**：`rasterizer OK`、`simple-knn OK`、`gate tests passed` 三行
+全部出现。任何一行缺失，后面的指标都不可信，先解决环境再往下走。
 
 ## 2. 权重准备（本地 checkpoint，运行时不再访问 HuggingFace）
 
@@ -78,6 +103,16 @@ SAM 3D（对象先验，可选，非主证据链）：
 ```bash
 hf download facebook/sam-3d-objects --include "checkpoints/*"
 ```
+
+**作用**：VGGT 权重在第 4 步生成几何束（位姿 + 相对深度），这份深度同时是
+训练监督的来源；SAM2 权重在第 6 步把遮挡物从测试图里抠出来，形成评估掩码。
+
+**为了证明什么**：用预训练 VGGT 取代 COLMAP 做 SfM，是方法"无 COLMAP、开箱
+即用"卖点的事实基础；SAM2 掩码是主指标 masked PSNR 的标尺，掩码质量直接决定
+主表的可信度。
+
+**应得到什么结果**：`run_vggt_depth.py` 能加载本地 checkpoint 并为每张图输出
+`{name}_depth.npy`；SAM2 能从单点提示分割出完整遮挡物轮廓（人工抽查 5-10 张）。
 
 ## 3. 数据准备
 
@@ -136,6 +171,18 @@ python scripts/make_sparse_split.py --images data/mipnerf360/bicycle/images \
   --num 12 --out-list data/mipnerf360/bicycle/sparse_train.txt
 ```
 
+**作用**：下载并组织两个公共数据集的图像，形成标准 3DGS 目录（`images/` +
+稀疏模型 + 深度 + 掩码）。
+
+**为了证明什么**：只用公共数据集、不用自制数据，保证审稿人和读者能 1:1 复现。
+两个数据集角色不同：Mip-NeRF360 证明"先验不伤可见区"（标准稠密场景的内部
+对照），On-The-Go 证明"遮挡区真的变好"（真实手持遮挡的外部效度）。
+
+**应得到什么结果**：Mip-NeRF360 九个场景齐全，每场景 `images/` 图集完整
+（bicycle 约 200 张）；On-The-Go 十二个场景按下载目录核对高/低遮挡两档，每
+场景都能定位到 `images/`。可选 few-view 协议下，`sparse_train.txt` 恰好 12 张，
+用于"少视图时先验更有价值"的扩展实验。
+
 ## 4. 几何束：VGGT -> COLMAP
 
 ```bash
@@ -166,6 +213,18 @@ ls data/mipnerf360/bicycle/vggt/*_depth.npy | wc -l   # 应等于图片数
 python -c "import json; print(len(json.load(open('data/mipnerf360/bicycle/vggt/cameras.json'))))"
 ls data/mipnerf360/bicycle/sparse/0                   # cameras.bin images.bin points3D.bin
 ```
+
+**作用**：VGGT 直接回归每张图的相机位姿与相对深度；`vggt_to_colmap.py` 把深度
+反投影成稀疏点云并写成 COLMAP `sparse/0`，供 3DGS 初始化；同一份深度在训练中
+作为几何监督。
+
+**为了证明什么**：一是证明整条管线不依赖 COLMAP/SfM；二是把"初始化和监督
+同源同尺度"固定下来，消除"深度尺度不匹配导致训练塌掉"这个混淆变量，让后续
+对照的差异只来自门控策略。
+
+**应得到什么结果**：depth 文件数与图片数一致；`cameras.json` 长度等于图片数；
+`sparse/0` 下三个二进制文件齐全且点数 > 0（建议 1e5 量级）。点数接近 0 说明
+反投影参数有误，训练会退化，必须先修。
 
 ## 5. 训练：五条对照曲线
 
@@ -204,6 +263,25 @@ python train_depr.py -s data/mipnerf360/bicycle -m output/bicycle_fixedw \
   --gate entropy --depth-path data/mipnerf360/bicycle/vggt --no-adaptive-w --w-fixed 0.5
 ```
 
+**作用**：五条曲线构成"一个主对照 + 两个消融"：
+
+- `none`：纯光度 3DGS，作为基线和下界；
+- `uniform`：全域均匀深度先验，回答"先验整体上是否有益"（H1 的实证）；
+- `entropy`：ours，回答"熵门控路由是否优于均匀注入"（H2）；
+- `fixed_w`：关闭自适应先验强度，回答"自适应 w 是否必要"（H3）。
+
+Pilot（7k 迭代）只是冒烟：确认 loss 正常下降、无 NaN、显存与门控耗时在预期内。
+
+**为了证明什么**：训练视角的 loss 是第一层证据。H1 的预期表现是 `uniform` 的
+收敛值不一定比 `none` 好（先验把可见区带偏）；H2 的预期表现是 `entropy` 收敛值
+不高于 `none` 且不高于 `uniform`（先验只用在需要处）。但训练 loss 只反映训练
+视角，真正结论必须等第 6 节的测试视图指标，两层证据合起来才是完整论证。
+
+**应得到什么结果**：三个 run 的 EMA loss 轨迹（每 1000 迭代打印）；`entropy`
+的门控耗时在毫秒级，说明路由本身开销可忽略。另外建议补一个最小可视化（导出
+`gate.state_map()` 与 `gate.masks()` 为 npy/PNG，当前代码未接线），人工核对
+"prior 区域"是否落在遮挡物附近——这是方法行为正确性的定性证据。
+
 训练完成输出在 `output/<模型名>/`。每 1000 迭代进度条会显示 EMA loss 与门控耗时。
 
 ## 6. 遮挡区评估（SAM2 掩码 + masked PSNR）
@@ -233,17 +311,44 @@ python scripts/eval_masked.py \
 
 指标：`psnr`（全图）、`masked_psnr` / `masked_ssim`（仅遮挡区，主指标）。
 
+**作用**：把训练好的模型在测试视角渲染出来，用 SAM2 掩码圈出遮挡区，分别计算
+全图 psnr 与遮挡区 masked_psnr / masked_ssim。这是论文的主表数据。
+
+**为了证明什么**：masked 指标直接度量"遮挡区重建质量"（核心主张）；全图 psnr
+度量"先验是否污染了可见区"（核心主张的另一半）。两个数必须同表出现，只报
+其中一个就是片面证据。
+
+**应得到什么结果（判读）**：
+
+- 成立模式：masked_psnr `entropy > uniform >= none`，同时全图 psnr `entropy`
+  与 `none` 无显著差异（不退化）。
+- 遮挡区涨了但全图大跌：门控漏放，先验仍污染可见区，回去检查 prior mask 的
+  覆盖范围。
+- `uniform` 全图也不差、`entropy` 没有增量：说明均匀先验已经足够，门控没有
+  价值，需要换证据（如 VGGT-Omega 的置信度）或收紧门控阈值。
+
+报告时只写实测数字，不预设提升幅度；最终以三个场景取平均为准。
+
 ## 7. 消融矩阵与命令对应
 
-| 论文变体 | 命令行 | 状态 |
-|---|---|---|
-| 基线 3DGS | `--gate none` | 可跑 |
-| 均匀先验 | `--gate uniform --depth-path ...` | 可跑 |
-| ours（熵门控） | `--gate entropy --depth-path ...` | 可跑 |
-| evidence_mean | `--gate mean_grad --depth-path ...` | 未接线：与 entropy 同证据，待实现 |
-| evidence_conf | `--gate depth_conf --depth-path ...` | 未接线：同上 |
-| fixed_w | `--gate entropy --depth-path ... --no-adaptive-w --w-fixed 0.5` | 可跑 |
-| global_ratio | （全局粒度门控） | 未实现，暂不跑 |
+| 论文变体 | 证明什么 | 命令行 | 状态 |
+|---|---|---|---|
+| 基线 3DGS | 下界：没有先验时遮挡区能做到什么程度 | `--gate none` | 可跑 |
+| 均匀先验 | H1：全域先验是否整体有益、是否污染可见区 | `--gate uniform --depth-path ...` | 可跑 |
+| ours（熵门控） | H2：区域路由是否优于均匀注入 | `--gate entropy --depth-path ...` | 可跑 |
+| evidence_mean | 证据形式消融：均值 vs 熵 | `--gate mean_grad --depth-path ...` | 未接线 |
+| evidence_conf | 证据形式消融：置信度 vs 熵 | `--gate depth_conf --depth-path ...` | 未接线 |
+| fixed_w | H3：自适应强度是否有增益 | `--gate entropy --depth-path ... --no-adaptive-w --w-fixed 0.5` | 可跑 |
+| global_ratio | 门控粒度消融：全局 vs 区域 | （全局粒度门控） | 未实现 |
+
+消融主表模板（每个可跑变体 × 每个场景一行，最终按场景平均）：
+
+| 变体 | 全图 PSNR | masked PSNR | masked SSIM | Δmasked（对基线） |
+|---|---|---|---|---|
+| none | | | | 0 |
+| uniform | | | | |
+| ours（entropy） | | | | |
+| fixed_w | | | | |
 
 对象先验（SAM 3D）：
 
@@ -264,14 +369,14 @@ python scripts/run_sam3d_prior.py --image data/mipnerf360/bicycle/images/frame_0
 
 ## 9. 建议执行顺序（先跑哪个）
 
-1. `bash setup.sh --self-test`，确认 torch + nvcc 都在
-2. `bash setup.sh`，以 `--dry-run` 先过一遍再实装
-3. `python tests/test_gate.py`，门控模块离线自检
-4. bicycle 上跑 VGGT 深度 + COLMAP 转换，肉眼/脚本核对相机数和点数
-5. 7k pilot：`none` vs `entropy`，比训练 loss 轨迹
-6. 30k 正式五条曲线（第 5 节命令）
-7. 补 test 渲染接线 -> SAM2 掩码 -> masked PSNR
-8. garden、room、On-The-Go 场景复制同一协议
+1. `bash setup.sh --self-test`，确认 torch + nvcc 都在 —— 环境门槛
+2. `bash setup.sh`，以 `--dry-run` 先过一遍再实装 —— 同上
+3. `python tests/test_gate.py`，门控模块离线自检 —— 门控三态状态机可离线验证
+4. bicycle 上跑 VGGT 深度 + COLMAP 转换，核对相机数和点数 —— 几何束成立
+5. 7k pilot：`none` vs `entropy`，比训练 loss 轨迹 —— 先看 H1/H2 的第一层信号
+6. 30k 正式五条曲线（第 5 节命令） —— 产出对照 loss
+7. 补 test 渲染接线 -> SAM2 掩码 -> masked PSNR —— 产出主表
+8. garden、room、On-The-Go 场景复制同一协议 —— 主表平均与分档结论
 
 ## 10. 常见运行错误
 
@@ -281,3 +386,19 @@ python scripts/run_sam3d_prior.py --image data/mipnerf360/bicycle/images/frame_0
 - simple-knn editable 安装成功后 `import` 仍报 `No module named`：其 hatchling 后端不会编译 CUDA 扩展，改用 `cd third_party/gaussian-splatting/submodules/simple-knn && python setup.py build_ext --inplace`，`train_depr.py` 会自动把该目录加入 `sys.path`。
 - OOM：`--resolution 2` 半分辨率跑 pilot；正式表只标全分辨率场景。
 - HF `403 / gated repo`：权重申请未通过或 `HF_TOKEN` 未导出。
+
+## 11. 结果判读：从指标到论文主张
+
+论文最终靠三张表/图支撑三个主张，每个主张必须能指向其中一张：
+
+1. **主表（定量核心）**：none / uniform / ours / fixed_w × Mip-NeRF360 三场景 +
+   On-The-Go 高/低遮挡档，列全图 PSNR、masked PSNR/SSIM。H2 由 `ours > uniform`
+   且全图 PSNR 不降证明。
+2. **先验污染证据表**：none vs uniform 的全图 PSNR 差，以及 uniform 在掩码外
+   （可见区）的 PSNR 下降，证明 H1，即"问题确实存在"，同时回应审稿人
+   "为什么不直接到处加深度"的质疑。
+3. **门控行为图（定性）**：几张测试图的 prior mask 叠加在输入图上，展示路由
+   集中在遮挡物周围；配合训练期 `state_map` 时序变化说明门控是动态的。当前
+   代码未导出这些图，属于待接线项。
+
+写论文时逐条核对：没有表支撑的主张删掉或降级为 discussion，不写空头结论。
