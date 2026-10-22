@@ -18,6 +18,8 @@ import numpy as np
 
 UPSTREAM = Path(__file__).resolve().parent / "third_party" / "gaussian-splatting"
 sys.path.insert(0, str(UPSTREAM))
+# simple-knn is built in-place by setup.sh; keep the source dir importable
+sys.path.insert(0, str(UPSTREAM / "submodules" / "simple-knn"))
 
 import torch
 from random import randint

@@ -244,5 +244,6 @@ python scripts/run_sam3d_prior.py --image data/bicycle/images/frame_0000.png \
 - `Could not find a version that satisfies the requirement setuptools>=68`：镜像/代理问题，换 `PIP_INDEX_URL` 并去掉 `http_proxy` 环境变量。
 - `ModuleNotFoundError: No module named 'torch'`（PEP 517 构建隔离）：任何 `pip install -e` 都加 `--no-build-isolation`。
 - `nvcc fatal / No CUDA toolchain`：确认 `nvcc --version`；没有就 `conda install -y -c nvidia cuda-nvcc=12.1`。
+- simple-knn editable 安装成功后 `import` 仍报 `No module named`：其 hatchling 后端不会编译 CUDA 扩展，改用 `cd third_party/gaussian-splatting/submodules/simple-knn && python setup.py build_ext --inplace`，`train_depr.py` 会自动把该目录加入 `sys.path`。
 - OOM：`--resolution 2` 半分辨率跑 pilot；正式表只标全分辨率场景。
 - HF `403 / gated repo`：权重申请未通过或 `HF_TOKEN` 未导出。

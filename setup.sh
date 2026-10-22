@@ -157,12 +157,18 @@ fi
 info "[4/5] building 3DGS rasterizers (needs nvcc matching the container CUDA)"
 if [ "$DRY_RUN" -eq 1 ]; then
   echo "  [dry-run] PIP install -e submodules/diff-gaussian-rasterization --use-pep517 --no-build-isolation"
-  echo "  [dry-run] PIP install -e submodules/simple-knn --use-pep517 --no-build-isolation"
+  echo "  [dry-run] simple-knn: python setup.py build_ext --inplace"
 else
   PIP install -e third_party/gaussian-splatting/submodules/diff-gaussian-rasterization \
     --use-pep517 --no-build-isolation
-  PIP install -e third_party/gaussian-splatting/submodules/simple-knn \
-    --use-pep517 --no-build-isolation
+  # simple-knn's hatchling editable build does not compile the CUDA extension,
+  # so build it in-place and let train_depr.py put the dir on sys.path.
+  SK_DIR=third_party/gaussian-splatting/submodules/simple-knn
+  if [ -f "$SK_DIR/setup.py" ]; then
+    (cd "$SK_DIR" && "$PYBIN" setup.py build_ext --inplace)
+  else
+    PIP install "$SK_DIR" --use-pep517 --no-build-isolation
+  fi
 fi
 
 info "[5/5] installing model packages (failures here do not block training)"
@@ -192,7 +198,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
   echo "  [dry-run] import checks + tests/test_gate.py"
 else
   "$PYBIN" -c "from diff_gaussian_rasterization import GaussianRasterizationSettings; print('rasterizer OK')"
-  "$PYBIN" -c "from simple_knn._C import distCUDA2; print('simple-knn OK')"
+  "$PYBIN" -c "import sys; sys.path.insert(0, 'third_party/gaussian-splatting/submodules/simple-knn'); from simple_knn._C import distCUDA2; print('simple-knn OK')"
   "$PYBIN" tests/test_gate.py
 fi
 
