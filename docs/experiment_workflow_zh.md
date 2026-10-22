@@ -48,11 +48,11 @@ bash setup.sh
 ```bash
 mkdir -p checkpoints
 
-# 情况 A：VGGT-Omega（推荐，1B-512）
-# 文件例如 vggt_omega_1b_512.pt，放到 checkpoints/ 下
-
-# 情况 B：原版 VGGT（model.pt 或 vggt_model.bin）
+# 情况 A：原版 VGGT（你已拿到的 model.pt / vggt_model.bin）
 # 放到 checkpoints/ 下，运行时加 --model vggt
+
+# 情况 B：VGGT-Omega（可选，1B-512）
+# 文件例如 vggt_omega_1b_512.pt，放到 checkpoints/ 下
 ```
 
 如果还没有权重、需要一次性下载（gated 仓库需先申请并登录）：
@@ -60,9 +60,10 @@ mkdir -p checkpoints
 ```bash
 export HF_TOKEN=<你的 HuggingFace token>
 huggingface-cli login --token $HF_TOKEN
-hf download facebook/VGGT-Omega vggt_omega_1b_512.pt --local-dir checkpoints
 # 原版 VGGT：
 hf download facebook/VGGT-1B model.pt --local-dir checkpoints
+# VGGT-Omega（可选）：
+hf download facebook/VGGT-Omega vggt_omega_1b_512.pt --local-dir checkpoints
 ```
 
 SAM2 掩码评估用（官方直链，无需申请）：
@@ -80,10 +81,26 @@ hf download facebook/sam-3d-objects --include "checkpoints/*"
 
 ## 3. 数据准备
 
-下载地址：
+下载地址（On-The-Go 原项目页已失效，改用 HuggingFace 镜像）：
 
-- Mip-NeRF360：<https://jonbarron.info/mipnerf360/>
-- NeRF On-The-Go：<https://on-the-go-data.github.io/>
+- Mip-NeRF360：<https://jonbarron.info/mipnerf360/>，官方直链见下方命令
+- NeRF On-The-Go：HuggingFace 镜像 `onground/robustvggt` 的 `onthego/` 子集
+
+下载命令（AutoDL 上先 `source /etc/network_turbo`）：
+
+```bash
+cd data
+# Mip-NeRF360 全部 9 场景，约 7 GB
+curl -O http://storage.googleapis.com/gresearch/refraw360/360_v2.zip
+unzip -q 360_v2.zip
+mv 360_v2 mipnerf360   # 解压得到 360_v2/ 目录，重命名对齐下方布局
+
+# NeRF On-The-Go（12 场景原图，国内走 hf-mirror 加速）
+export HF_ENDPOINT=https://hf-mirror.com
+huggingface-cli download onground/robustvggt --repo-type dataset \
+  --include "onthego/*" --local-dir on_the_go
+# 场景目录形如 on_the_go/onthego/on-the-go/<scene>/images/
+```
 
 两个数据集共用同一套目录约定（与官方 3DGS 数据读取一致）。`bicycle` 只是
 Mip-NeRF360 里用作示例的一个场景，其余场景完全同构：
@@ -109,6 +126,9 @@ data/
     ...                        # corner/patio/spot/patio-high 等，见下载后目录
 ```
 
+镜像下载的 On-The-Go 目录会多两级前缀（`onthego/on-the-go/<scene>/images/`），
+直接把该 `images/` 路径传给 `--images` 即可，无需移动文件。
+
 稀疏视图协议（可选，做"few-view 抗遮挡"实验时用）：
 
 ```bash
@@ -116,18 +136,18 @@ python scripts/make_sparse_split.py --images data/mipnerf360/bicycle/images \
   --num 12 --out-list data/mipnerf360/bicycle/sparse_train.txt
 ```
 
-## 4. 几何束：VGGT-Omega -> COLMAP
+## 4. 几何束：VGGT -> COLMAP
 
 ```bash
-# VGGT-Omega：每张图输出 {name}_depth.npy、{name}_conf.npy 和 cameras.json
+# 原版 VGGT（已有权重放 checkpoints/model.pt）：
 python scripts/run_vggt_depth.py \
-  --images data/bicycle/images --out data/bicycle/vggt \
-  --ckpt checkpoints/vggt_omega_1b_512.pt --res 512
-
-# 原版 VGGT 权重（model.pt / vggt_model.bin）：
-python scripts/run_vggt_depth.py \
-  --images data/bicycle/images --out data/bicycle/vggt \
+  --images data/mipnerf360/bicycle/images --out data/mipnerf360/bicycle/vggt \
   --model vggt --ckpt checkpoints/model.pt
+
+# 备选 VGGT-Omega（每张图额外输出 {name}_conf.npy）：
+python scripts/run_vggt_depth.py \
+  --images data/mipnerf360/bicycle/images --out data/mipnerf360/bicycle/vggt \
+  --ckpt checkpoints/vggt_omega_1b_512.pt --res 512
 
 # 注意：原版 VGGT 与 VGGT-Omega 输出的都是尺度无关的相对深度。
 # 初始化点云与深度监督都来自同一份深度，尺度天然一致，可放心使用；
@@ -135,16 +155,16 @@ python scripts/run_vggt_depth.py \
 
 # 位姿 + 深度反投影出点云，写 COLMAP sparse/0（无 COLMAP 也能训练 3DGS）
 python scripts/vggt_to_colmap.py \
-  --vggt data/bicycle/vggt --out data/bicycle/sparse/0 \
+  --vggt data/mipnerf360/bicycle/vggt --out data/mipnerf360/bicycle/sparse/0 \
   --max-points 200000 --sample-step 4
 ```
 
 跑完自检：
 
 ```bash
-ls data/bicycle/vggt/*_depth.npy | wc -l        # 应等于图片数
-python -c "import json; print(len(json.load(open('data/bicycle/vggt/cameras.json'))))"
-ls data/bicycle/sparse/0                        # cameras.bin images.bin points3D.bin
+ls data/mipnerf360/bicycle/vggt/*_depth.npy | wc -l   # 应等于图片数
+python -c "import json; print(len(json.load(open('data/mipnerf360/bicycle/vggt/cameras.json'))))"
+ls data/mipnerf360/bicycle/sparse/0                   # cameras.bin images.bin points3D.bin
 ```
 
 ## 5. 训练：五条对照曲线
@@ -158,37 +178,37 @@ python tests/test_gate.py
 Pilot（每变体 7k 迭代，约 10 分钟/场景）：
 
 ```bash
-python train_depr.py -s data/bicycle -m output/bicycle_pilot_none \
+python train_depr.py -s data/mipnerf360/bicycle -m output/bicycle_pilot_none \
   --gate none --iterations 7000 --quiet
 
-python train_depr.py -s data/bicycle -m output/bicycle_pilot_entropy \
-  --gate entropy --depth-path data/bicycle/vggt --iterations 7000 --quiet
+python train_depr.py -s data/mipnerf360/bicycle -m output/bicycle_pilot_entropy \
+  --gate entropy --depth-path data/mipnerf360/bicycle/vggt --iterations 7000 --quiet
 ```
 
 正式训练（30k 迭代，约 40 分钟/场景）：
 
 ```bash
 # 基线：纯光度 3DGS
-python train_depr.py -s data/bicycle -m output/bicycle_none --gate none
+python train_depr.py -s data/mipnerf360/bicycle -m output/bicycle_none --gate none
 
 # 对照：均匀深度先验
-python train_depr.py -s data/bicycle -m output/bicycle_uniform \
-  --gate uniform --depth-path data/bicycle/vggt
+python train_depr.py -s data/mipnerf360/bicycle -m output/bicycle_uniform \
+  --gate uniform --depth-path data/mipnerf360/bicycle/vggt
 
 # ours：熵门控路由
-python train_depr.py -s data/bicycle -m output/bicycle_entropy \
-  --gate entropy --depth-path data/bicycle/vggt
+python train_depr.py -s data/mipnerf360/bicycle -m output/bicycle_entropy \
+  --gate entropy --depth-path data/mipnerf360/bicycle/vggt
 
 # 消融：固定先验权重（关闭自适应 w）
-python train_depr.py -s data/bicycle -m output/bicycle_fixedw \
-  --gate entropy --depth-path data/bicycle/vggt --no-adaptive-w --w-fixed 0.5
+python train_depr.py -s data/mipnerf360/bicycle -m output/bicycle_fixedw \
+  --gate entropy --depth-path data/mipnerf360/bicycle/vggt --no-adaptive-w --w-fixed 0.5
 ```
 
 训练完成输出在 `output/<模型名>/`。每 1000 迭代进度条会显示 EMA loss 与门控耗时。
 
 ## 6. 遮挡区评估（SAM2 掩码 + masked PSNR）
 
-先准备提示点文件 `data/bicycle/masks/prompts.json`，每张测试图给一个遮挡物点：
+先准备提示点文件 `data/mipnerf360/bicycle/masks/prompts.json`，每张测试图给一个遮挡物点：
 
 ```json
 {
@@ -197,16 +217,17 @@ python train_depr.py -s data/bicycle -m output/bicycle_fixedw \
 ```
 
 ```bash
-python scripts/make_sam2_masks.py -s data/bicycle \
-  --prompts data/bicycle/masks/prompts.json \
-  --out data/bicycle/masks \
+python scripts/make_sam2_masks.py -s data/mipnerf360/bicycle/images \
+  --prompts data/mipnerf360/bicycle/masks/prompts.json \
+  --out data/mipnerf360/bicycle/masks \
   --checkpoint checkpoints/sam2.1_hiera_large.pt \
   --model-config third_party/sam2/sam2/configs/sam2.1/sam2.1_hiera_l.yaml
 
-# renders 是测试视图渲染目录，gt 是测试原图，masks 是上一步输出
+# renders 是测试视图渲染目录（见第 8 节：需先用上游 render.py 适配后渲染）
+# gt 指向 images/ 即可：测试图是其中按 8:1 抽出的子集，按文件名自动匹配
 python scripts/eval_masked.py \
   --renders output/bicycle_entropy/test/ours_30000 \
-  --gt data/bicycle/test --masks data/bicycle/masks \
+  --gt data/mipnerf360/bicycle/images --masks data/mipnerf360/bicycle/masks \
   --out-csv output/bicycle_entropy/metrics.csv
 ```
 
@@ -227,8 +248,8 @@ python scripts/eval_masked.py \
 对象先验（SAM 3D）：
 
 ```bash
-python scripts/run_sam3d_prior.py --image data/bicycle/images/frame_0000.png \
-  --mask data/bicycle/masks/frame_0000_occluder.png \
+python scripts/run_sam3d_prior.py --image data/mipnerf360/bicycle/images/frame_0000.png \
+  --mask data/mipnerf360/bicycle/masks/frame_0000_occluder.png \
   --out-ply output/prior_0000.ply --config <pipeline.yaml> --seed 42
 ```
 
