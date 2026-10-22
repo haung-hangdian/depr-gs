@@ -1,0 +1,23 @@
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# environments
+.venv/
+venv/
+
+# upstream repos cloned by setup.sh / setup.ps1
+third_party/
+
+# experiment artifacts (large, per-machine)
+data/
+output/
+checkpoints/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

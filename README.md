@@ -26,7 +26,9 @@ depr-gs/
 ```powershell
 .\setup.ps1                 # clone upstream, create conda env, build rasterizer
 
-python scripts/run_vggt_depth.py --images data/bicycle/images --out data/bicycle/vggt
+python scripts/run_vggt_depth.py --images data/bicycle/images --out data/bicycle/vggt \
+    --ckpt checkpoints/vggt_omega_1b_512.pt
+# original VGGT weights: add --model vggt --ckpt checkpoints/model.pt
 python scripts/vggt_to_colmap.py --vggt data/bicycle/vggt --out data/bicycle/sparse/0
 
 # baselines (same scene, same protocol)
@@ -56,7 +58,8 @@ python tests/test_gate.py
 ## Checkpoints (HuggingFace, gated)
 
 ```text
-hf download facebook/vggt-omega --include "checkpoints/*" --exclude "*.onnx"
+hf download facebook/VGGT-Omega vggt_omega_1b_512.pt --local-dir checkpoints
+hf download facebook/VGGT-1B model.pt --local-dir checkpoints
 hf download facebook/sam-3d-objects --include "checkpoints/*"
 ```
 

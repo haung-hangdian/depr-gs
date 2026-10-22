@@ -99,7 +99,8 @@ def main():
     ap.add_argument("--depth-path", default="")
     ap.add_argument("--lambda-depth", type=float, default=0.1)
     ap.add_argument("--lambda-dssim", type=float, default=0.2)
-    ap.add_argument("--adaptive-w", action="store_true", default=True)
+    ap.add_argument("--adaptive-w", action=argparse.BooleanOptionalAction,
+                    default=True)
     ap.add_argument("--w-fixed", type=float, default=0.5)
     ap.add_argument("--prior-ply", default="")
     ap.add_argument("--prior-mask", default="")
