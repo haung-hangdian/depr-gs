@@ -198,7 +198,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
   echo "  [dry-run] import checks + tests/test_gate.py"
 else
   "$PYBIN" -c "from diff_gaussian_rasterization import GaussianRasterizationSettings; print('rasterizer OK')"
-  "$PYBIN" -c "import sys; sys.path.insert(0, 'third_party/gaussian-splatting/submodules/simple-knn'); from simple_knn._C import distCUDA2; print('simple-knn OK')"
+  "$PYBIN" -c "import torch, sys; sys.path.insert(0, 'third_party/gaussian-splatting/submodules/simple-knn'); from simple_knn._C import distCUDA2; print('simple-knn OK')"
   "$PYBIN" tests/test_gate.py
 fi
 
