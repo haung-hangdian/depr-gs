@@ -141,13 +141,14 @@ clone_repo simple-knn \
 info "[3/5] installing python dependencies (container torch is kept untouched)"
 if [ "$DRY_RUN" -eq 1 ]; then
   echo "  [dry-run] PIP install -U setuptools wheel"
-  echo "  [dry-run] PIP install numpy pyyaml tqdm pillow scipy imageio matplotlib huggingface_hub einops hatchling"
+  echo "  [dry-run] PIP install numpy pyyaml tqdm pillow scipy imageio matplotlib huggingface_hub einops hatchling hatch-requirements-txt"
   echo "  [dry-run] PIP install --no-deps lpips"
   echo "  [dry-run] PIP install -e . --no-build-isolation"
 else
   PIP install --index-url "$PIP_INDEX_URL" -U setuptools wheel
   PIP install --index-url "$PIP_INDEX_URL" \
-    numpy pyyaml tqdm pillow scipy imageio matplotlib huggingface_hub einops hatchling
+    numpy pyyaml tqdm pillow scipy imageio matplotlib huggingface_hub einops \
+    hatchling hatch-requirements-txt
   # --no-deps keeps pip from replacing the container's CUDA torch build
   PIP install --index-url "$PIP_INDEX_URL" --no-deps lpips \
     || warn "lpips skipped; PSNR/SSIM eval still works without it"
