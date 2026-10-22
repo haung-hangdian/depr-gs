@@ -85,22 +85,35 @@ hf download facebook/sam-3d-objects --include "checkpoints/*"
 - Mip-NeRF360：<https://jonbarron.info/mipnerf360/>
 - NeRF On-The-Go：<https://on-the-go-data.github.io/>
 
-目录约定（与官方 3DGS 数据读取一致）：
+两个数据集共用同一套目录约定（与官方 3DGS 数据读取一致）。`bicycle` 只是
+Mip-NeRF360 里用作示例的一个场景，其余场景完全同构：
 
 ```text
 data/
-  bicycle/
-    images/           # 所有训练/测试图片，jpg 或 png
-    vggt/             # run_vggt_depth.py 输出（深度 + 位姿）
-    sparse/0/         # vggt_to_colmap.py 输出（COLMAP 二进制模型）
-    masks/            # SAM2 掩码输出
+  mipnerf360/                  # Mip-NeRF360，9 个场景
+    bicycle/                   # 示例场景
+      images/                  # 该场景全部图片，jpg 或 png
+      vggt/                    # run_vggt_depth.py 输出（深度 + 位姿）
+      sparse/0/                # vggt_to_colmap.py 输出（COLMAP 二进制模型）
+      masks/                   # SAM2 掩码输出
+    garden/
+    room/
+    ...                        # stump/kitchen/bonsai/counter/flowers/treehill
+  on_the_go/                   # NeRF On-The-Go，12 个场景
+    mountain/
+      images/
+      vggt/
+      sparse/0/
+      masks/
+    fountain/
+    ...                        # corner/patio/spot/patio-high 等，见下载后目录
 ```
 
 稀疏视图协议（可选，做"few-view 抗遮挡"实验时用）：
 
 ```bash
-python scripts/make_sparse_split.py --images data/bicycle/images \
-  --num 12 --out-list data/bicycle/sparse_train.txt
+python scripts/make_sparse_split.py --images data/mipnerf360/bicycle/images \
+  --num 12 --out-list data/mipnerf360/bicycle/sparse_train.txt
 ```
 
 ## 4. 几何束：VGGT-Omega -> COLMAP
