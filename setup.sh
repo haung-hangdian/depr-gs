@@ -151,38 +151,38 @@ else
   # --no-deps keeps pip from replacing the container's CUDA torch build
   PIP install --index-url "$PIP_INDEX_URL" --no-deps lpips \
     || warn "lpips skipped; PSNR/SSIM eval still works without it"
-  PIP install -e . --no-build-isolation
+  PIP install -e . --use-pep517 --no-build-isolation
 fi
 
 info "[4/5] building 3DGS rasterizers (needs nvcc matching the container CUDA)"
 if [ "$DRY_RUN" -eq 1 ]; then
-  echo "  [dry-run] PIP install -e submodules/diff-gaussian-rasterization --no-build-isolation"
-  echo "  [dry-run] PIP install -e submodules/simple-knn --no-build-isolation"
+  echo "  [dry-run] PIP install -e submodules/diff-gaussian-rasterization --use-pep517 --no-build-isolation"
+  echo "  [dry-run] PIP install -e submodules/simple-knn --use-pep517 --no-build-isolation"
 else
   PIP install -e third_party/gaussian-splatting/submodules/diff-gaussian-rasterization \
-    --no-build-isolation
+    --use-pep517 --no-build-isolation
   PIP install -e third_party/gaussian-splatting/submodules/simple-knn \
-    --no-build-isolation
+    --use-pep517 --no-build-isolation
 fi
 
 info "[5/5] installing model packages (failures here do not block training)"
 if [ "$DRY_RUN" -eq 1 ]; then
-  echo "  [dry-run] PIP install -e third_party/{vggt-omega,sam2,sam-3d-objects} --no-build-isolation --no-deps"
+  echo "  [dry-run] PIP install -e third_party/{vggt-omega,vggt,sam2,sam-3d-objects} --use-pep517 --no-build-isolation --no-deps"
 else
   if [ "${SKIP_VGGT:-0}" -ne 1 ] && [ -e third_party/vggt-omega/.git ]; then
-    PIP install -e third_party/vggt-omega --no-build-isolation --no-deps \
+    PIP install -e third_party/vggt-omega --use-pep517 --no-build-isolation --no-deps \
       || warn "vggt-omega install failed; check its README for extra deps"
   fi
   if [ "${SKIP_VGGT:-0}" -ne 1 ] && [ -e third_party/vggt/.git ]; then
-    PIP install -e third_party/vggt --no-build-isolation --no-deps \
+    PIP install -e third_party/vggt --use-pep517 --no-build-isolation --no-deps \
       || warn "vggt install failed; only needed if you use --model vggt"
   fi
   if [ "$NO_SAM2" -ne 1 ] && [ -e third_party/sam2/.git ]; then
-    PIP install -e third_party/sam2 --no-build-isolation --no-deps \
+    PIP install -e third_party/sam2 --use-pep517 --no-build-isolation --no-deps \
       || warn "sam2 install failed; masked eval needs it"
   fi
   if [ "$NO_SAM3D" -ne 1 ] && [ -e third_party/sam-3d-objects/.git ]; then
-    PIP install -e third_party/sam-3d-objects --no-build-isolation --no-deps \
+    PIP install -e third_party/sam-3d-objects --use-pep517 --no-build-isolation --no-deps \
       || warn "sam-3d-objects install failed; object-prior route is optional"
   fi
 fi
