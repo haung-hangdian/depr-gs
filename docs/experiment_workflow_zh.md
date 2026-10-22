@@ -116,10 +116,15 @@ hf download facebook/sam-3d-objects --include "checkpoints/*"
 
 ## 3. 数据准备
 
-下载地址（On-The-Go 原项目页已失效，改用 HuggingFace 镜像）：
+下载地址（On-The-Go 曾流传的旧链接已失效，以下为当前有效渠道）：
 
 - Mip-NeRF360：<https://jonbarron.info/mipnerf360/>，官方直链见下方命令
-- NeRF On-The-Go：HuggingFace 镜像 `onground/robustvggt` 的 `onthego/` 子集
+- NeRF On-The-Go 官方：项目页 <https://rwn17.github.io/nerf-on-the-go/>，
+  仓库 <https://github.com/cvg/nerf-on-the-go>；数据集由官方脚本
+  `bash ./scripts/download_on-the-go.sh` 从 Google Drive 拉取（含全部 12 场景）
+- NeRF On-The-Go 镜像（国内推荐）：HuggingFace `onground/robustvggt` 的
+  `onthego/` 子集；另有一个去畸变版 `jkulhanek/nerfonthego-undistorted`
+  （WildGaussians 预处理，6 个定量场景，图像已去畸变、可直接喂 3DGS）
 
 下载命令（AutoDL 上先 `source /etc/network_turbo`）：
 
