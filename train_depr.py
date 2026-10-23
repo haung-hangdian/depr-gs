@@ -231,11 +231,21 @@ def main():
             conf = resize_depth(confs[viewpoint_cam.image_name],
                                 gt.shape[1], gt.shape[2]).to(args.data_device)
             d_render = render_depth(gaussians, viewpoint_cam)
+            # VGGT depth is affine-ambiguous while render_depth lives in world
+            # units; align both with a per-image z-score before comparing.
+            with torch.no_grad():
+                dr = d_render.flatten()
+                dg = d_gt.flatten()
+                mr, sr = dr[dr > 0].mean(), dr[dr > 0].std()
+                mg, sg = dg[dg > 0].mean(), dg[dg > 0].std()
+                sr = sr.clamp(min=1e-6)
+                sg = sg.clamp(min=1e-6)
+            d_err_map = (d_render - mr) / sr - (d_gt - mg) / sg
             if args.gate == "uniform":
                 w_g = torch.ones_like(w_geo)
             else:
                 w_g = w_geo + w_prior * (args.w_fixed if not args.adaptive_w else 1.0)
-            d_err = ((d_render - d_gt).abs() * conf * w_g).sum() / w_g.sum().clamp(min=1e-6)
+            d_err = (d_err_map.abs() * conf * w_g).sum() / w_g.sum().clamp(min=1e-6)
             loss = loss + args.lambda_depth * d_err
 
         loss.backward()
