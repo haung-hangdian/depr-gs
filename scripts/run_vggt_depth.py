@@ -109,9 +109,9 @@ def main():
     for i, name in enumerate(names):
         base = Path(name).stem
         np.save(os.path.join(args.out, f"{base}_depth.npy"),
-                depths[i].cpu().numpy())
+                np.squeeze(depths[i].cpu().numpy()))
         np.save(os.path.join(args.out, f"{base}_conf.npy"),
-                confs[i].cpu().numpy())
+                np.squeeze(confs[i].cpu().numpy()))
         cameras[name] = {
             "extrinsics": extr[i].cpu().numpy().tolist(),
             "intrinsics": intr[i].cpu().numpy().tolist(),

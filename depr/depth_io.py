@@ -23,8 +23,8 @@ def load_bundle(out_dir: str, names: list[str]) -> tuple[dict, dict, dict]:
     depths, confs = {}, {}
     for name in names:
         base = os.path.splitext(os.path.basename(name))[0]
-        depths[name] = np.load(os.path.join(out_dir, f"{base}_depth.npy"))
-        confs[name] = np.load(os.path.join(out_dir, f"{base}_conf.npy"))
+        depths[name] = np.squeeze(np.load(os.path.join(out_dir, f"{base}_depth.npy")))
+        confs[name] = np.squeeze(np.load(os.path.join(out_dir, f"{base}_conf.npy")))
     with open(os.path.join(out_dir, "cameras.json"), encoding="utf-8") as f:
         cameras = json.load(f)
     return depths, confs, cameras

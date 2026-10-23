@@ -73,8 +73,9 @@ def main():
         q = qvec_from_rot(r)
         images[i + 1] = (q, t, i + 1, os.path.basename(name))
 
-        depth = np.load(os.path.join(args.vggt, f"{Path(name).stem}_depth.npy"))
-        conf = np.load(os.path.join(args.vggt, f"{Path(name).stem}_conf.npy"))
+        # VGGT-Omega saves depth as (H, W, 1); squeeze guards either layout.
+        depth = np.squeeze(np.load(os.path.join(args.vggt, f"{Path(name).stem}_depth.npy")))
+        conf = np.squeeze(np.load(os.path.join(args.vggt, f"{Path(name).stem}_conf.npy")))
         v, u = np.mgrid[0:h:args.sample_step, 0:w:args.sample_step]
         z = depth[::args.sample_step, ::args.sample_step]
         c = conf[::args.sample_step, ::args.sample_step]
