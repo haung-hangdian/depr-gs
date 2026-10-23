@@ -59,6 +59,10 @@ GIT_MIRRORS=(
 
 clone_repo() {
   local name=$1 path=$2 repo=$3 optional=${4:-0}
+  local -a mirrors=("${GIT_MIRRORS[@]}")
+  if [ -n "${5:-}" ]; then
+    read -r -a mirrors <<< "$5"
+  fi
   if [ "$DRY_RUN" -eq 1 ]; then
     echo "  [dry-run] clone $repo -> $path"; return 0
   fi
@@ -72,7 +76,7 @@ clone_repo() {
     warn "removing incomplete checkout: $path"
     rm -rf "$path"
   fi
-  for mirror in "${GIT_MIRRORS[@]}"; do
+  for mirror in "${mirrors[@]}"; do
     for attempt in 1 2; do
       info "clone $name (attempt $attempt via $mirror)"
       if git clone --depth 1 -c http.version=HTTP/1.1 "${mirror}${repo}" "$path"; then
@@ -143,7 +147,8 @@ clone_repo diff-gaussian-rasterization \
   graphdeco-inria/diff-gaussian-rasterization
 clone_repo simple-knn \
   third_party/gaussian-splatting/submodules/simple-knn \
-  graphdeco-inria/simple-knn
+  camenduru/simple-knn 0 \
+  "https://github.com/ https://gh-proxy.com/https://github.com/ https://ghfast.top/https://github.com/ https://gitlab.inria.fr/bkerbl/ https://gitclone.com/github.com/"
 
 info "[3/5] installing python dependencies (container torch is kept untouched)"
 if [ "$DRY_RUN" -eq 1 ]; then

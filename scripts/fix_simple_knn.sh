@@ -7,11 +7,14 @@ cd "$(dirname "$0")/.."
 source /etc/network_turbo 2>/dev/null || true
 
 SK_DIR=third_party/gaussian-splatting/submodules/simple-knn
+# graphdeco-inria/simple-knn was removed from GitHub; camenduru keeps a mirror,
+# and the INRIA GitLab repo is the canonical upstream.
 MIRRORS=(
-  "https://github.com/graphdeco-inria/simple-knn.git"
-  "https://gh-proxy.com/https://github.com/graphdeco-inria/simple-knn.git"
-  "https://ghfast.top/https://github.com/graphdeco-inria/simple-knn.git"
-  "https://gitclone.com/github.com/graphdeco-inria/simple-knn.git"
+  "https://github.com/camenduru/simple-knn.git"
+  "https://gh-proxy.com/https://github.com/camenduru/simple-knn.git"
+  "https://ghfast.top/https://github.com/camenduru/simple-knn.git"
+  "https://gitlab.inria.fr/bkerbl/simple-knn.git"
+  "https://gitclone.com/github.com/camenduru/simple-knn.git"
 )
 
 if [ -f "$SK_DIR/setup.py" ]; then
