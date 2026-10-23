@@ -215,9 +215,9 @@ python scripts/run_vggt_depth.py \
   --images data/mipnerf360/bicycle/images --out data/mipnerf360/bicycle/vggt \
   --ckpt checkpoints/vggt_omega_1b_512.pt --res 512
 
-# 注意：原版 VGGT 与 VGGT-Omega 输出的都是尺度无关的相对深度。
-# 初始化点云与深度监督都来自同一份深度，尺度天然一致，可放心使用；
-# 不要把这份深度与其他来源的度量深度混用。
+# 注意：原版 VGGT 与 VGGT-Omega 输出的都是仿射歧义的相对深度，而渲染
+# 深度以世界单位计。训练中已做逐图 z-score 对齐（各自按均值/标准差
+# 归一化后再比 L1），两者尺度不再需要一致；不要与其他来源的度量深度混用。
 
 # 位姿 + 深度反投影出点云，写 COLMAP sparse/0（无 COLMAP 也能训练 3DGS）
 python scripts/vggt_to_colmap.py \
