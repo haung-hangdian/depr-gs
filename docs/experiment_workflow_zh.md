@@ -66,6 +66,12 @@ SAM2 一次性装好，保证 `train_depr.py` 能编译运行。`--self-test` �
 **应得到什么结果**：`rasterizer OK`、`simple-knn OK`、`gate tests passed` 三行
 全部出现。任何一行缺失，后面的指标都不可信，先解决环境再往下走。
 
+AutoDL 数据盘持久化：`setup.sh` 检测到 `/root/autodl-tmp` 时，会自动把
+`data/`、`checkpoints/`、`output/`、`logs/` 软链到数据盘（分别对应
+`/root/autodl-tmp/data`、`.../checkpoints`、`.../depr-runs/output`、
+`.../depr-runs/logs`）。换容器后只需重新 `git clone` 仓库并跑一次 `bash
+setup.sh`，之前下载的数据、权重和全部训练结果都在，无需重新下载。
+
 ## 2. 权重准备（本地 checkpoint，运行时不再访问 HuggingFace）
 
 把权重文件放到 `checkpoints/`，推理时用 `--ckpt` 直接加载：

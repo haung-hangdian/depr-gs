@@ -124,6 +124,26 @@ fi
 
 self_test
 
+# AutoDL persistence: keep datasets, checkpoints, runs and logs on the data disk
+# so they survive container re-creation. Existing real directories are kept.
+if [ "$DRY_RUN" -eq 1 ]; then
+  echo "  [dry-run] link data/checkpoints/output/logs -> /root/autodl-tmp"
+elif [ -d /root/autodl-tmp ]; then
+  for pair in \
+    "data:/root/autodl-tmp/data" \
+    "checkpoints:/root/autodl-tmp/checkpoints" \
+    "output:/root/autodl-tmp/depr-runs/output" \
+    "logs:/root/autodl-tmp/depr-runs/logs"; do
+    name="${pair%%:*}"
+    target="${pair#*:}"
+    mkdir -p "$target"
+    if [ -L "$name" ] || [ ! -e "$name" ]; then
+      ln -sfn "$target" "$name"
+      info "linked $name -> $target"
+    fi
+  done
+fi
+
 info "[1/5] clone upstream repositories"
 clone_repo gaussian-splatting third_party/gaussian-splatting \
   graphdeco-inria/gaussian-splatting
