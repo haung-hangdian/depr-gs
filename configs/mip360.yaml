@@ -1,4 +1,4 @@
 dataset: mipnerf360
 sparse_views: null        # 8-12 视图时填具体数量
 seed: 0
-scenes: [bicycle, garden, room]
+scenes: [bicycle, garden, room]   # 官方 zip 另有 stump/kitchen/bonsai/counter；flowers/treehill 无图

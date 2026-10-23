@@ -1,6 +1,8 @@
 dataset: on_the_go
 seed: 0
+scenes: [mountain, fountain, corner, patio, spot, patio_high]   # 论文定量 6 场景
+qualitative_scenes: [arcdetriomphe, drone, statue, train, train_station, tree]
 occlusion_groups:
-  low: []
-  medium: []
-  high: []
+  low: [mountain, fountain]
+  medium: [corner, patio]
+  high: [spot, patio_high]

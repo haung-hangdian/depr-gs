@@ -26,20 +26,20 @@ depr-gs/
 ```powershell
 .\setup.ps1                 # clone upstream, create conda env, build rasterizer
 
-python scripts/run_vggt_depth.py --images data/bicycle/images --out data/bicycle/vggt \
+python scripts/run_vggt_depth.py --images data/mipnerf360/bicycle/images --out data/mipnerf360/bicycle/vggt \
     --ckpt checkpoints/vggt_omega_1b_512.pt
 # original VGGT weights: add --model vggt --ckpt checkpoints/model.pt
-python scripts/vggt_to_colmap.py --vggt data/bicycle/vggt --out data/bicycle/sparse/0
+python scripts/vggt_to_colmap.py --vggt data/mipnerf360/bicycle/vggt --out data/mipnerf360/bicycle/sparse/0
 
 # baselines (same scene, same protocol)
-python train_depr.py -s data/bicycle -m output/bicycle_v0      --gate none
-python train_depr.py -s data/bicycle -m output/bicycle_uniform --gate uniform --depth-path data/bicycle/vggt
-python train_depr.py -s data/bicycle -m output/bicycle_gate    --gate entropy --depth-path data/bicycle/vggt
+python train_depr.py -s data/mipnerf360/bicycle -m output/bicycle_v0      --gate none
+python train_depr.py -s data/mipnerf360/bicycle -m output/bicycle_uniform --gate uniform --depth-path data/mipnerf360/bicycle/vggt
+python train_depr.py -s data/mipnerf360/bicycle -m output/bicycle_gate    --gate entropy --depth-path data/mipnerf360/bicycle/vggt
 
 # masked evaluation (masks generated with SAM2)
-python scripts/make_sam2_masks.py -s data/bicycle --prompts masks/prompts.json
+python scripts/make_sam2_masks.py -s data/mipnerf360/bicycle/images --prompts data/mipnerf360/bicycle/masks/prompts.json
 python scripts/eval_masked.py --renders output/bicycle_gate/test/ours_30000 \
-                              --gt data/bicycle/test --masks data/bicycle/masks
+                              --gt data/mipnerf360/bicycle/images --masks data/mipnerf360/bicycle/masks
 ```
 
 Linux (AutoDL / bare-metal):

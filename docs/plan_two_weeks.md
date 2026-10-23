@@ -88,16 +88,18 @@ depr-gs/
 
 ```bash
 # 几何束
-python scripts/run_vggt_depth.py --images data/bicycle/images --out data/bicycle/vggt
-python scripts/vggt_to_colmap.py --vggt data/bicycle/vggt --out data/bicycle/sparse/0
+python scripts/run_vggt_depth.py --images data/mipnerf360/bicycle/images --out data/mipnerf360/bicycle/vggt
+python scripts/vggt_to_colmap.py --vggt data/mipnerf360/bicycle/vggt --out data/mipnerf360/bicycle/sparse/0
 # 基线
-python train.py -s data/bicycle
-python train.py -s data/bicycle --init-from vggt --depth-prior none        # +init
-python train.py -s data/bicycle --depth-prior uniform                      # 均匀先验
-python train.py -s data/bicycle --depth-prior entropy-gated --grid 32 --window 100
+python train_depr.py -s data/mipnerf360/bicycle --gate none                          # 基线
+python train_depr.py -s data/mipnerf360/bicycle --gate uniform \
+  --depth-path data/mipnerf360/bicycle/vggt                                          # 均匀先验
+python train_depr.py -s data/mipnerf360/bicycle --gate entropy \
+  --depth-path data/mipnerf360/bicycle/vggt --gate-grid 32 --gate-window 100        # ours
 # 掩码与评测
-python scripts/make_sam2_masks.py -s data/bicycle
-python eval_masked.py -m output/bicycle/gate --mask masks/bicycle
+python scripts/make_sam2_masks.py -s data/mipnerf360/bicycle/images
+python scripts/eval_masked.py --renders output/bicycle_entropy/test/ours_30000 \
+  --gt data/mipnerf360/bicycle/images --masks data/mipnerf360/bicycle/masks
 ```
 
 ## 8. 论文与代码同步

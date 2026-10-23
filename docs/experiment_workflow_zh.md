@@ -130,10 +130,10 @@ hf download facebook/sam-3d-objects --include "checkpoints/*"
 
 ```bash
 cd data
-# Mip-NeRF360 全部 9 场景，约 7 GB
+# Mip-NeRF360（官方 zip 含 COLMAP 稀疏模型，约 12 GB 压缩 / 12.7 GB 解压）
 curl -O http://storage.googleapis.com/gresearch/refraw360/360_v2.zip
-unzip -q 360_v2.zip
-mv 360_v2 mipnerf360   # 解压得到 360_v2/ 目录，重命名对齐下方布局
+mkdir -p mipnerf360
+unzip -q 360_v2.zip -d mipnerf360   # 场景直接落在 mipnerf360/<scene>/
 
 # NeRF On-The-Go（12 场景原图，国内走 hf-mirror 加速）
 export HF_ENDPOINT=https://hf-mirror.com
@@ -147,27 +147,35 @@ Mip-NeRF360 里用作示例的一个场景，其余场景完全同构：
 
 ```text
 data/
-  mipnerf360/                  # Mip-NeRF360，9 个场景
+  mipnerf360/                  # Mip-NeRF360；官方 zip 为 7 个场景（flowers/treehill 为 txt 占位，无图）
     bicycle/                   # 示例场景
       images/                  # 该场景全部图片，jpg 或 png
+      sparse/0/                # 官方 zip 自带 COLMAP；VGGT 管线可覆盖重写
       vggt/                    # run_vggt_depth.py 输出（深度 + 位姿）
-      sparse/0/                # vggt_to_colmap.py 输出（COLMAP 二进制模型）
       masks/                   # SAM2 掩码输出
     garden/
     room/
-    ...                        # stump/kitchen/bonsai/counter/flowers/treehill
-  on_the_go/                   # NeRF On-The-Go，12 个场景
+    ...                        # stump/kitchen/bonsai/counter
+  on-the-go/                   # NeRF On-The-Go，12 个场景
     mountain/
       images/
+      transforms.json split.json   # 官方 zip 自带 COLMAP 导出的位姿
       vggt/
       sparse/0/
       masks/
     fountain/
-    ...                        # corner/patio/spot/patio-high 等，见下载后目录
+    ...                        # corner/patio/spot/patio_high/arcdetriomphe/
+                               # drone/statue/train/train_station/tree
 ```
 
-镜像下载的 On-The-Go 目录会多两级前缀（`onthego/on-the-go/<scene>/images/`），
-直接把该 `images/` 路径传给 `--images` 即可，无需移动文件。
+当前 AutoDL 容器里数据已就位：`~/depr-gs/data -> /root/autodl-tmp/data`，
+Mip-NeRF360 在 `data/mipnerf360/`（7 场景），On-The-Go 在 `data/on-the-go/`。
+注意场景名是 `patio_high`（下划线），不是 `patio-high`。镜像渠道的目录会多
+两级前缀（`onthego/on-the-go/<scene>/images/`），把 `images/` 路径传给
+`--images` 即可。
+
+On-The-Go 官方遮挡分档（用于 `configs/otg.yaml`）：低遮挡 mountain/fountain，
+中遮挡 corner/patio，高遮挡 spot/patio_high；其余 6 个场景为定性展示场景。
 
 稀疏视图协议（可选，做"few-view 抗遮挡"实验时用）：
 
@@ -217,6 +225,16 @@ python scripts/vggt_to_colmap.py \
 ls data/mipnerf360/bicycle/vggt/*_depth.npy | wc -l   # 应等于图片数
 python -c "import json; print(len(json.load(open('data/mipnerf360/bicycle/vggt/cameras.json'))))"
 ls data/mipnerf360/bicycle/sparse/0                   # cameras.bin images.bin points3D.bin
+```
+
+On-The-Go 场景完全同构，例如 mountain：
+
+```bash
+python scripts/run_vggt_depth.py \
+  --images data/on-the-go/mountain/images --out data/on-the-go/mountain/vggt \
+  --ckpt checkpoints/vggt_omega_1b_512.pt --res 512
+python scripts/vggt_to_colmap.py \
+  --vggt data/on-the-go/mountain/vggt --out data/on-the-go/mountain/sparse/0
 ```
 
 **作用**：VGGT 直接回归每张图的相机位姿与相对深度；`vggt_to_colmap.py` 把深度
