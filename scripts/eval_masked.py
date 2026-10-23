@@ -12,6 +12,8 @@ from PIL import Image
 
 from depr.metrics import masked_psnr, masked_ssim, psnr, report
 
+GT_EXTS = (".png", ".jpg", ".jpeg", ".JPG", ".JPEG")
+
 
 def load(path, size=None):
     img = np.asarray(Image.open(path).convert("RGB")).astype(np.float32)
@@ -33,7 +35,9 @@ def main():
     rows = []
     for render_path in sorted(Path(args.renders).glob("*.png")):
         stem = render_path.stem
-        gt_path = Path(args.gt) / f"{stem}.png"
+        gt_path = next((Path(args.gt) / f"{stem}{ext}" for ext in GT_EXTS
+                        if (Path(args.gt) / f"{stem}{ext}").exists()),
+                       Path(args.gt) / f"{stem}.png")
         mask_path = Path(args.masks) / f"{stem}_{args.mask_suffix}.png"
         if not (gt_path.exists() and mask_path.exists()):
             continue

@@ -38,7 +38,7 @@ python train_depr.py -s data/mipnerf360/bicycle -m output/bicycle_gate    --gate
 
 # masked evaluation (masks generated with SAM2)
 python scripts/make_sam2_masks.py -s data/mipnerf360/bicycle/images --prompts data/mipnerf360/bicycle/masks/prompts.json
-python scripts/eval_masked.py --renders output/bicycle_gate/test/ours_30000 \
+python scripts/eval_masked.py --renders output/bicycle_gate/test/ours_30000/renders \
                               --gt data/mipnerf360/bicycle/images --masks data/mipnerf360/bicycle/masks
 ```
 

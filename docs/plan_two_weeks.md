@@ -98,7 +98,7 @@ python train_depr.py -s data/mipnerf360/bicycle --gate entropy \
   --depth-path data/mipnerf360/bicycle/vggt --gate-grid 32 --gate-window 100        # ours
 # 掩码与评测
 python scripts/make_sam2_masks.py -s data/mipnerf360/bicycle/images
-python scripts/eval_masked.py --renders output/bicycle_entropy/test/ours_30000 \
+python scripts/eval_masked.py --renders output/bicycle_entropy/test/ours_30000/renders \
   --gt data/mipnerf360/bicycle/images --masks data/mipnerf360/bicycle/masks
 ```
 

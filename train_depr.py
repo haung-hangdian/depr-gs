@@ -16,6 +16,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+from PIL import Image
 
 UPSTREAM = Path(__file__).resolve().parent / "third_party" / "gaussian-splatting"
 sys.path.insert(0, str(UPSTREAM))
@@ -81,6 +82,19 @@ def freeze_prior_densify(viewspace_points, proj2d, prior_mask):
         return
     with torch.no_grad():
         viewspace_points.grad[valid & (prior_mask[y[valid], x[valid]] > 0.5)] = 0.0
+
+
+def render_set(model_path, name, iteration, scene, gaussians, bg):
+    """Render all test views of a saved iteration to test/ours_<i>/renders/."""
+    render_dir = Path(model_path) / name / f"ours_{iteration}" / "renders"
+    render_dir.mkdir(parents=True, exist_ok=True)
+    with torch.no_grad():
+        for view in scene.getTestCameras():
+            rendering = render(view, gaussians, PIPE, bg)["render"]
+            img = (rendering.clamp(0.0, 1.0) * 255.0).permute(1, 2, 0).byte().cpu().numpy()
+            stem = Path(view.image_name).stem
+            Image.fromarray(img).save(render_dir / f"{stem}.png")
+    print(f"rendered {name}/ours_{iteration}: {len(scene.getTestCameras())} views")
 
 
 def main():
@@ -163,7 +177,6 @@ def main():
 
     prior_mask = None
     if args.prior_mask:
-        from PIL import Image
         prior_mask = torch.from_numpy(
             (np.asarray(Image.open(args.prior_mask).convert("L")) > 127).astype(np.float32))
         prior_mask = prior_mask[None].to(args.data_device)
@@ -255,6 +268,13 @@ def main():
             gaussians.update_learning_rate(iteration)
             gaussians.optimizer.step()
             gaussians.optimizer.zero_grad(set_to_none=True)
+
+        if iteration in args.save_iterations:
+            save_dir = os.path.join(args.model_path, "point_cloud",
+                                    f"iteration_{iteration}")
+            gaussians.save_ply(os.path.join(save_dir, "point_cloud.ply"))
+        if iteration in args.test_iterations:
+            render_set(args.model_path, "test", iteration, scene, gaussians, bg)
 
         if iteration % 1000 == 0 and not args.quiet:
             progress.set_postfix({"loss": f"{ema_loss:.5f}",

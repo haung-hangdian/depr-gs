@@ -334,10 +334,10 @@ python scripts/make_sam2_masks.py -s data/mipnerf360/bicycle/images \
   --checkpoint checkpoints/sam2.1_hiera_large.pt \
   --model-config third_party/sam2/sam2/configs/sam2.1/sam2.1_hiera_l.yaml
 
-# renders 是测试视图渲染目录（见第 8 节：需先用上游 render.py 适配后渲染）
+# renders 由训练时的 --test-iterations 自动生成（默认 7000/15000/30000）
 # gt 指向 images/ 即可：测试图是其中按 8:1 抽出的子集，按文件名自动匹配
 python scripts/eval_masked.py \
-  --renders output/bicycle_entropy/test/ours_30000 \
+  --renders output/bicycle_entropy/test/ours_30000/renders \
   --gt data/mipnerf360/bicycle/images --masks data/mipnerf360/bicycle/masks \
   --out-csv output/bicycle_entropy/metrics.csv
 ```
@@ -395,7 +395,9 @@ python scripts/run_sam3d_prior.py --image data/mipnerf360/bicycle/images/frame_0
 
 ## 8. 已知缺口（先别在这些点上浪费时间）
 
-- `train_depr.py` 的 `--test-iterations` / `--save-iterations` 已定义但**未在循环中接线**：目前不保存测试渲染和中间 checkpoint。第 6 节的 `eval_masked.py` 需要渲染目录，跑评估前要补上"训练后渲染测试视图"的代码（参考上游 `gaussian-splatting` 的 `render.py`）。
+- 测试渲染与模型保存已接线：训练在 `--test-iterations`（默认 7000/15000/30000）
+  自动渲染测试视图到 `output/<模型>/test/ours_<i>/renders/`，并在
+  `--save-iterations`（默认 30000）保存 PLY 到 `point_cloud/iteration_<i>/`。
 - `--gate mean_grad` 与 `--gate depth_conf` 目前使用与 entropy 相同的残差证据，三者在数学上等价；实现证据切换前，这两行消融没有信息量。
 - SAM 3D 输出与几何束的对齐（相似变换）未实现。
 - VGGT-Omega / VGGT 权重为 gated，申请未通过时全链路会被阻塞；脚本已支持本地 checkpoint（`--ckpt`），拿到文件后无需运行时联网。
