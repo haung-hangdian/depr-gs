@@ -35,6 +35,11 @@ from utils.loss_utils import l1_loss, ssim
 from depr.depth_io import load_bundle
 from depr.gate import DynamicsGate
 
+PIPE = SimpleNamespace(convert_SHs_python=False,
+                       compute_cov3D_python=False,
+                       debug=False,
+                       antialiasing=False)
+
 
 def load_depth_bundle(path, names):
     if not path or not os.path.isdir(path):
@@ -58,7 +63,7 @@ def render_depth(pc: GaussianModel, viewpoint):
     z_min, z_max = z_cam.min(), z_cam.max()
     z_norm = (z_cam - z_min) / (z_max - z_min + 1e-6)
     color = z_norm[:, None].expand(-1, 3).contiguous()
-    depth_img = render(viewpoint, pc, None, override_color=color)["render"]
+    depth_img = render(viewpoint, pc, PIPE, override_color=color)["render"]
     return depth_img.mean(dim=0, keepdim=True) * (z_max - z_min) + z_min
 
 
@@ -179,7 +184,7 @@ def main():
         depths, confs = load_depth_bundle(args.depth_path,
                                           [viewpoint_cam.image_name])
 
-        render_pkg = render(viewpoint_cam, gaussians, None, bg)
+        render_pkg = render(viewpoint_cam, gaussians, PIPE, bg)
         image, viewspace_points, visibility_filter, radii = (
             render_pkg["render"], render_pkg["viewspace_points"],
             render_pkg["visibility_filter"], render_pkg["radii"])
