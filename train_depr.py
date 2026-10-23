@@ -13,6 +13,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -121,7 +122,23 @@ def main():
 
     gaussians = GaussianModel(3)
     scene = Scene(args, gaussians)
-    gaussians.training_setup()
+    training_args = SimpleNamespace(
+        percent_dense=0.01,
+        position_lr_init=args.position_lr_init,
+        position_lr_final=0.0000016,
+        position_lr_delay_mult=0.01,
+        position_lr_max_steps=30_000,
+        feature_lr=0.0025,
+        opacity_lr=0.025,
+        scaling_lr=0.005,
+        rotation_lr=0.001,
+        exposure_lr_init=0.01,
+        exposure_lr_final=0.001,
+        exposure_lr_delay_steps=0,
+        exposure_lr_delay_mult=0.0,
+        iterations=args.iterations,
+    )
+    gaussians.training_setup(training_args)
 
     # optional object prior: load gaussians from PLY and tag the appended range
     prior_ids = None
@@ -130,7 +147,10 @@ def main():
         prior_pc = GM(3)
         prior_pc.load_ply(args.prior_ply)
         n0 = gaussians.get_xyz.shape[0]
-        gaussians.densification_postfix(prior_pc, torch.zeros(n0, dtype=torch.int))
+        gaussians.densification_postfix(
+            prior_pc._xyz, prior_pc._features_dc, prior_pc._features_rest,
+            prior_pc._opacity, prior_pc._scaling, prior_pc._rotation,
+            torch.zeros(n0, device="cuda"))
         prior_ids = torch.arange(n0, gaussians.get_xyz.shape[0], device="cuda")
         print(f"prior appended: {len(prior_ids)} gaussians")
 
@@ -219,7 +239,8 @@ def main():
                     size_threshold = 20 if iteration > args.opacity_reset_interval \
                         else None
                     gaussians.densify_and_prune(args.densify_grad_threshold, 0.005,
-                                                scene.cameras_extent, size_threshold)
+                                                scene.cameras_extent,
+                                                size_threshold, radii)
                 if iteration % args.opacity_reset_interval == 0:
                     gaussians.reset_opacity()
             gaussians.update_learning_rate(iteration)
