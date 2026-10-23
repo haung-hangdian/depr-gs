@@ -62,8 +62,15 @@ clone_repo() {
   if [ "$DRY_RUN" -eq 1 ]; then
     echo "  [dry-run] clone $repo -> $path"; return 0
   fi
-  if [ -e "$path/.git" ]; then
+  # A failed `submodule update` leaves an empty dir containing only `.git`;
+  # treat that as missing so the direct clone can repopulate it.
+  if [ -e "$path/.git" ] \
+     && [ -n "$(find "$path" -mindepth 1 -maxdepth 1 ! -name '.git' -print -quit 2>/dev/null)" ]; then
     info "skip clone: $name already present"; return 0
+  fi
+  if [ -e "$path" ]; then
+    warn "removing incomplete checkout: $path"
+    rm -rf "$path"
   fi
   for mirror in "${GIT_MIRRORS[@]}"; do
     for attempt in 1 2; do
@@ -167,8 +174,10 @@ else
   SK_DIR=third_party/gaussian-splatting/submodules/simple-knn
   if [ -f "$SK_DIR/setup.py" ]; then
     (cd "$SK_DIR" && "$PYBIN" setup.py build_ext --inplace)
+  elif [ -f "$SK_DIR/pyproject.toml" ]; then
+    PIP install -e "$SK_DIR" --use-pep517 --no-build-isolation --no-deps
   else
-    PIP install "$SK_DIR" --use-pep517 --no-build-isolation
+    fail "simple-knn checkout is empty at $SK_DIR; rerun setup.sh so the fixed clone step repopulates it"
   fi
 fi
 
