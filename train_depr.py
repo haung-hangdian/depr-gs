@@ -104,7 +104,8 @@ def main():
     # Attributes required by the upstream Scene loader (graphdeco gaussian-splatting).
     ap.add_argument("--images", default="images")
     ap.add_argument("--depths", default="")
-    ap.add_argument("--eval", action="store_true")
+    # Upstream holds out every 8th view as test only when eval is enabled.
+    ap.add_argument("--eval", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument("--train-test-exp", action="store_true")
     # -1 keeps upstream behavior: auto-rescale images wider than 1600px.
     ap.add_argument("-r", "--resolution", type=int, default=-1)
