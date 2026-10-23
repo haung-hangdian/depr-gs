@@ -232,12 +232,13 @@ def main():
                                 gt.shape[1], gt.shape[2]).to(args.data_device)
             d_render = render_depth(gaussians, viewpoint_cam)
             # VGGT depth is affine-ambiguous while render_depth lives in world
-            # units; align both with a per-image z-score before comparing.
+            # units (OpenGL camera z, which is negative in front of the camera);
+            # align both with a per-image z-score over all pixels before comparing.
             with torch.no_grad():
                 dr = d_render.flatten()
                 dg = d_gt.flatten()
-                mr, sr = dr[dr > 0].mean(), dr[dr > 0].std()
-                mg, sg = dg[dg > 0].mean(), dg[dg > 0].std()
+                mr, sr = dr.mean(), dr.std()
+                mg, sg = dg.mean(), dg.std()
                 sr = sr.clamp(min=1e-6)
                 sg = sg.clamp(min=1e-6)
             d_err_map = (d_render - mr) / sr - (d_gt - mg) / sg
