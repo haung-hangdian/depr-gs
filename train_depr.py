@@ -84,7 +84,8 @@ def main():
     ap.add_argument("--depths", default="")
     ap.add_argument("--eval", action="store_true")
     ap.add_argument("--train-test-exp", action="store_true")
-    ap.add_argument("-r", "--resolution", type=int, default=1)
+    # -1 keeps upstream behavior: auto-rescale images wider than 1600px.
+    ap.add_argument("-r", "--resolution", type=int, default=-1)
     ap.add_argument("--iterations", type=int, default=30000)
     ap.add_argument("--test-iterations", nargs="+", type=int,
                     default=[7000, 15000, 30000])
