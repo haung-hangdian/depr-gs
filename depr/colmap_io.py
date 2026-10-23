@@ -30,8 +30,9 @@ def write_images_bin(path: str, images: dict[int, tuple]):
             _write_next(f, "dddd", *qvec)
             _write_next(f, "ddd", *tvec)
             _write_next(f, "I", cid)
-            _write_next(f, "Q", len(name.encode()))
+            # COLMAP stores the image name as a NUL-terminated byte string.
             f.write(name.encode())
+            f.write(b"\x00")
             _write_next(f, "Q", 0)  # no 2D points
 
 
