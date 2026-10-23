@@ -63,7 +63,9 @@ def render_depth(pc: GaussianModel, viewpoint):
     z_min, z_max = z_cam.min(), z_cam.max()
     z_norm = (z_cam - z_min) / (z_max - z_min + 1e-6)
     color = z_norm[:, None].expand(-1, 3).contiguous()
-    depth_img = render(viewpoint, pc, PIPE, override_color=color)["render"]
+    bg_color = torch.zeros(3, device=pc.get_xyz.device)
+    depth_img = render(viewpoint, pc, PIPE, bg_color,
+                       override_color=color)["render"]
     return depth_img.mean(dim=0, keepdim=True) * (z_max - z_min) + z_min
 
 
