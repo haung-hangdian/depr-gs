@@ -200,10 +200,12 @@ def main():
         loss = 0.0
         # photometric route: always on, down-weighted outside photo regions
         photo_scale = 0.15
-        w_p = 1.0 if args.gate in ("none", "uniform") else (
-            w_photo + (1 - w_photo) * photo_scale)
         per_pixel_l1 = (image - gt).abs().mean(dim=0, keepdim=True)
-        loss = loss + (per_pixel_l1 * w_p).sum() / w_p.sum()
+        if args.gate in ("none", "uniform"):
+            loss = loss + per_pixel_l1.mean()
+        else:
+            w_p = w_photo + (1 - w_photo) * photo_scale
+            loss = loss + (per_pixel_l1 * w_p).sum() / w_p.sum()
         loss = loss + args.lambda_dssim * (1.0 - ssim(image, gt))
 
         # geometric route
