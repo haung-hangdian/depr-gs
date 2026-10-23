@@ -79,6 +79,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("-s", "--source-path", required=True)
     ap.add_argument("-m", "--model-path", required=True)
+    # Attributes required by the upstream Scene loader (graphdeco gaussian-splatting).
+    ap.add_argument("--images", default="images")
+    ap.add_argument("--depths", default="")
+    ap.add_argument("--eval", action="store_true")
+    ap.add_argument("--train-test-exp", action="store_true")
     ap.add_argument("-r", "--resolution", type=int, default=1)
     ap.add_argument("--iterations", type=int, default=30000)
     ap.add_argument("--test-iterations", nargs="+", type=int,
