@@ -41,7 +41,8 @@ def main():
         mask_path = Path(args.masks) / f"{stem}_{args.mask_suffix}.png"
         if not (gt_path.exists() and mask_path.exists()):
             continue
-        pred, gt = load(render_path), load(gt_path)
+        pred = load(render_path)
+        gt = load(gt_path, size=(pred.shape[1], pred.shape[0]))
         mask = np.asarray(Image.open(mask_path).convert("L")) > 127
         if mask.shape[:2] != pred.shape[:2]:
             mask = np.asarray(Image.fromarray(mask.astype(np.uint8)).resize(
