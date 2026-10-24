@@ -127,9 +127,12 @@ def main():
                     choices=["entropy", "mean_grad", "depth_conf", "uniform", "none"])
     ap.add_argument("--gate-grid", type=int, default=32)
     ap.add_argument("--gate-window", type=int, default=100)
-    ap.add_argument("--mu-frac", type=float, default=0.2,
-                    help="region residual threshold, fraction of the max "
-                         "region mean (lower => fewer PRIOR regions)")
+    ap.add_argument("--inst-z", type=float, default=1.0,
+                    help="instability z-score above which a region is GEO")
+    ap.add_argument("--mu-quantile", type=float, default=0.7,
+                    help="residual quantile above which a stable region is PHOTO")
+    ap.add_argument("--demand-z", type=float, default=2.5,
+                    help="z95 of instability above which the depth route is enabled")
     ap.add_argument("--photo-scale", type=float, default=0.15,
                     help="photometric weight outside photo regions")
     ap.add_argument("--depth-path", default="")
@@ -195,7 +198,9 @@ def main():
     ema_loss = 0.0
     gate = DynamicsGate(grid=(args.gate_grid, args.gate_grid),
                         window=args.gate_window,
-                        mu_frac=args.mu_frac,
+                        inst_z=args.inst_z,
+                        mu_quantile=args.mu_quantile,
+                        demand_z=args.demand_z,
                         refresh_every=100,
                         w_grid=[0.2, 0.4, 0.6, 0.8, 1.0])
     progress = tqdm(range(1, args.iterations + 1), desc="Training",
@@ -307,7 +312,8 @@ def main():
             n_pr = int((states == DynamicsGate.PRIOR).sum())
             progress.set_postfix({"loss": f"{ema_loss:.5f}",
                                   "gate": f"{gate.overhead_ms:.1f}ms",
-                                  "PH/GE/PR": f"{n_ph}/{n_geo}/{n_pr}"})
+                                  "PH/GE/PR": f"{n_ph}/{n_geo}/{n_pr}",
+                                  "demand": int(gate.demand_on)})
 
     print(f"training finished: {args.model_path}")
 

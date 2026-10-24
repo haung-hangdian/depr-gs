@@ -55,9 +55,13 @@ def _box_blur(x: np.ndarray, k: int) -> np.ndarray:
         p = np.pad(out, pad, mode="edge")
         c = np.cumsum(p, axis=axis)
         if axis == 0:
-            out = (c[k - 1:, :] - c[:-(k - 1), :]) / k
+            prev = np.concatenate([np.zeros((1, c.shape[1]), dtype=c.dtype),
+                                   c[:-1, :]], axis=0)
+            out = (c[(k - 1):, :] - prev[:c.shape[0] - (k - 1), :]) / k
         else:
-            out = (c[:, k - 1:] - c[:, :-(k - 1)]) / k
+            prev = np.concatenate([np.zeros((c.shape[0], 1), dtype=c.dtype),
+                                   c[:, :-1]], axis=1)
+            out = (c[:, (k - 1):] - prev[:, :c.shape[1] - (k - 1)]) / k
     return out
 
 
@@ -67,17 +71,19 @@ class DynamicsGate:
     PHOTO, GEO, PRIOR = 0, 1, 2
 
     def __init__(self, grid=(32, 32), window=100, ema=0.9,
-                 inst_threshold=0.25, mu_frac=0.2,
+                 inst_z=1.0, mu_quantile=0.7, demand_z=2.5,
                  w_grid=(0.2, 0.4, 0.6, 0.8, 1.0),
                  refresh_every=100, smooth=3):
         self.grid = grid
         self.window = window
         self.ema = ema
-        self.inst_threshold = inst_threshold
-        self.mu_frac = mu_frac
+        self.inst_z = inst_z
+        self.mu_quantile = mu_quantile
+        self.demand_z = demand_z
         self.w_grid = list(w_grid)
         self.refresh_every = refresh_every
         self.smooth = smooth
+        self.demand_on = False
         self.traces: dict[tuple[int, int], deque] = {}
         self.mu: dict[tuple[int, int], float] = {}
         self.ent: dict[tuple[int, int], float] = {}
@@ -121,17 +127,36 @@ class DynamicsGate:
                 inst = arr.std() / (arr.mean() + 0.05 * ref_scale)
                 ent_arr[key] = float(inst)
             mu_arr[key] = self.mu[key]
-        # residual distribution entropy S0 over region means
-        s0 = _entropy(mu_arr.flatten() + 1e-8)
+
+        # Robust per-image normalization: instability is judged relative to the
+        # image's own distribution via median/MAD z-scores.
+        inst_median = float(np.median(ent_arr))
+        mad = float(np.median(np.abs(ent_arr - inst_median)))
+        z_inst = (ent_arr - inst_median) / (1.4826 * mad + 1e-8)
+
+        # Global prior demand: only a heavy instability tail (a few regions far
+        # more unstable than the rest) justifies switching the depth route on.
+        z95 = float(np.quantile(z_inst, 0.95))
+        self.demand_on = z95 >= self.demand_z
+
+        mu_thr = float(np.quantile(mu_arr, self.mu_quantile))
         for key in self._keys():
-            e, m = ent_arr[key], mu_arr[key]
-            if e > self.inst_threshold:
+            e, m = z_inst[key], mu_arr[key]
+            self.ent[key] = float(e)
+            if e > self.inst_z:
                 self.state[key] = self.GEO
-            elif m > self.mu_frac * max(float(mu_arr.max()), 1e-9):
+            elif m >= mu_thr:
                 self.state[key] = self.PHOTO
             else:
                 self.state[key] = self.PRIOR
 
+        if not self.demand_on:
+            for key in self._keys():
+                self.w_prior[key] = 0.0
+            return
+
+        # residual distribution entropy S0 over region means
+        s0 = _entropy(mu_arr.flatten() + 1e-8)
         # adaptive prior strength: pick w maximizing distribution shift (AIF Eq.5)
         best_w, best_shift = 0.5, -1.0
         for w in self.w_grid:
@@ -155,7 +180,7 @@ class DynamicsGate:
             if s == self.PHOTO:
                 p[key] = 1.0
             elif s == self.GEO:
-                g[key] = 1.0
+                g[key] = 1.0 if self.demand_on else 0.0
             else:
                 pr[key] = self.w_prior.get(key, 0.5)
         return {

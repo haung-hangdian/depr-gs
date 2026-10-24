@@ -34,7 +34,21 @@ def test_overhead_recorded():
     assert gate.overhead_ms >= 0.0
 
 
+def test_clean_scene_suppresses_depth_route():
+    rng = np.random.default_rng(1)
+    gate = DynamicsGate(grid=(8, 8), window=20)
+    for _ in range(25):
+        residual = 0.5 + 0.03 * rng.standard_normal((256, 256)).astype(np.float32)
+        gate.update(residual)
+    assert not gate.demand_on
+    masks = gate.masks((256, 256))
+    assert masks["geo"].max() == 0.0
+    assert masks["prior"].max() == 0.0
+    assert masks["photo"].max() == 1.0
+
+
 if __name__ == "__main__":
     test_three_state_routing()
     test_overhead_recorded()
+    test_clean_scene_suppresses_depth_route()
     print("gate tests passed")
