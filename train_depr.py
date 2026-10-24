@@ -301,8 +301,13 @@ def main():
             render_set(args.model_path, "test", iteration, scene, gaussians, bg)
 
         if iteration % 1000 == 0 and not args.quiet:
+            states = gate.state_map()
+            n_ph = int((states == DynamicsGate.PHOTO).sum())
+            n_geo = int((states == DynamicsGate.GEO).sum())
+            n_pr = int((states == DynamicsGate.PRIOR).sum())
             progress.set_postfix({"loss": f"{ema_loss:.5f}",
-                                  "gate": f"{gate.overhead_ms:.1f}ms"})
+                                  "gate": f"{gate.overhead_ms:.1f}ms",
+                                  "PH/GE/PR": f"{n_ph}/{n_geo}/{n_pr}"})
 
     print(f"training finished: {args.model_path}")
 
