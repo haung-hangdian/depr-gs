@@ -129,6 +129,8 @@ def main():
     ap.add_argument("--gate-window", type=int, default=100)
     ap.add_argument("--depth-path", default="")
     ap.add_argument("--lambda-depth", type=float, default=0.1)
+    ap.add_argument("--depth-warmup", type=int, default=3000,
+                    help="iterations before the depth term turns on")
     ap.add_argument("--lambda-dssim", type=float, default=0.2)
     ap.add_argument("--adaptive-w", action=argparse.BooleanOptionalAction,
                     default=True)
@@ -232,22 +234,27 @@ def main():
                                 gt.shape[1], gt.shape[2]).to(args.data_device)
             d_render = render_depth(gaussians, viewpoint_cam)
             # VGGT depth is affine-ambiguous while render_depth lives in world
-            # units (OpenGL camera z, which is negative in front of the camera);
-            # align both with a per-image z-score over all pixels before comparing.
+            # units (OpenGL camera z, negative in front of the camera). Fit an
+            # affine map d_gt ~= a*d_render + b per image and supervise the
+            # aligned residual.
             with torch.no_grad():
-                dr = d_render.flatten()
-                dg = d_gt.flatten()
-                mr, sr = dr.mean(), dr.std()
-                mg, sg = dg.mean(), dg.std()
-                sr = sr.clamp(min=1e-6)
-                sg = sg.clamp(min=1e-6)
-            d_err_map = (d_render - mr) / sr - (d_gt - mg) / sg
+                dr = d_render.flatten().float()
+                dg = d_gt.flatten().float()
+                valid = torch.isfinite(dr) & torch.isfinite(dg) & (dg > 0)
+                if valid.sum() > 100:
+                    a_mat = torch.stack([dr[valid], torch.ones_like(dr[valid])], 1)
+                    sol = torch.linalg.lstsq(a_mat, dg[valid]).solution
+                    a, b = sol[0], sol[1]
+                else:
+                    a, b = 1.0, 0.0
+            d_err_map = (a * d_render + b) - d_gt
             if args.gate == "uniform":
                 w_g = torch.ones_like(w_geo)
             else:
                 w_g = w_geo + w_prior * (args.w_fixed if not args.adaptive_w else 1.0)
             d_err = (d_err_map.abs() * conf * w_g).sum() / w_g.sum().clamp(min=1e-6)
-            loss = loss + args.lambda_depth * d_err
+            if iteration >= args.depth_warmup:
+                loss = loss + args.lambda_depth * d_err
 
         loss.backward()
 
