@@ -127,6 +127,11 @@ def main():
                     choices=["entropy", "mean_grad", "depth_conf", "uniform", "none"])
     ap.add_argument("--gate-grid", type=int, default=32)
     ap.add_argument("--gate-window", type=int, default=100)
+    ap.add_argument("--mu-frac", type=float, default=0.2,
+                    help="region residual threshold, fraction of the max "
+                         "region mean (lower => fewer PRIOR regions)")
+    ap.add_argument("--photo-scale", type=float, default=0.15,
+                    help="photometric weight outside photo regions")
     ap.add_argument("--depth-path", default="")
     ap.add_argument("--lambda-depth", type=float, default=0.1)
     ap.add_argument("--depth-warmup", type=int, default=3000,
@@ -190,6 +195,7 @@ def main():
     ema_loss = 0.0
     gate = DynamicsGate(grid=(args.gate_grid, args.gate_grid),
                         window=args.gate_window,
+                        mu_frac=args.mu_frac,
                         refresh_every=100,
                         w_grid=[0.2, 0.4, 0.6, 0.8, 1.0])
     progress = tqdm(range(1, args.iterations + 1), desc="Training",
@@ -217,12 +223,11 @@ def main():
 
         loss = 0.0
         # photometric route: always on, down-weighted outside photo regions
-        photo_scale = 0.15
         per_pixel_l1 = (image - gt).abs().mean(dim=0, keepdim=True)
         if args.gate in ("none", "uniform"):
             loss = loss + per_pixel_l1.mean()
         else:
-            w_p = w_photo + (1 - w_photo) * photo_scale
+            w_p = w_photo + (1 - w_photo) * args.photo_scale
             loss = loss + (per_pixel_l1 * w_p).sum() / w_p.sum()
         loss = loss + args.lambda_dssim * (1.0 - ssim(image, gt))
 
